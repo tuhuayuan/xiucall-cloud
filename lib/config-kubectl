@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+function usage {
+    echo "USAGE: $0 <master-host-ip> [cert-file-pach]"
+    echo "  example: $0 172.17.4.101 ../ssl"
+}
+
+if [ -z "$1" ]; then
+    usage
+    exit 1
+fi
+
+PEM_FILE=$2
+if [ -z "$2" ]; then
+    PEM_FILE=../ssl
+fi
+
+MASTER_HOST=$1
+CA_CERT=${PEM_FILE}/ca.pem 
+ADMIN_KEY=${PEM_FILE}/admin-key.pem 
+ADMIN_CERT=${PEM_FILE}/admin.pem
+
+if [ ! -f ${CA_CERT} ] || [ ! -f ${ADMIN_KEY} ] || [ ! -f ${ADMIN_CERT} ]; then
+    echo "Can't find cert files in ${PEM_FILE}."
+    exit 1
+fi 
+
+kubectl config set-cluster default-cluster --server=https://${MASTER_HOST} --certificate-authority=${CA_CERT}
+kubectl config set-credentials default-admin --certificate-authority=${CA_CERT} --client-key=${ADMIN_KEY} --client-certificate=${ADMIN_CERT}
+kubectl config set-context default-system --cluster=default-cluster --user=default-admin
+kubectl config use-context default-system
