@@ -1,0 +1,20 @@
+#!/bin/bash -e
+
+ENV="$1"
+
+if [ -z "$ENV" ]; then
+  echo usage: $0 /etc/environment
+  exit 1
+fi
+
+# aliyun default network.
+PRIVATE_IP=`ip -f inet addr show eth0 | awk -F 'inet' '{ print $2}' | cut -d ' ' -f 2 | cut -d '/' -f 1 | grep -o "[^ ]\+\( \+[^ ]\+\)*"`
+PUBLIC_IP=`ip -f inet addr show eth1 | awk -F 'inet' '{ print $2}' | cut -d ' ' -f 2 | cut -d '/' -f 1 | grep -o "[^ ]\+\( \+[^ ]\+\)*"`
+
+if [ -f $ENV ]; then
+  rm $ENV
+fi
+
+echo "COREOS_PRIVATE_IPV4=${PRIVATE_IP}" >> "$ENV"
+echo "COREOS_PUBLIC_IPV4=${PUBLIC_IP}" >> "$ENV"
+

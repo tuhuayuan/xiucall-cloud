@@ -9,7 +9,7 @@ export ETCD_NAME=
 export ETCD_INITIAL_CLUSTER=
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.2.4_coreos.1
+export K8S_VER=v1.3.0_coreos.1
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=index.tenxcloud.com/tuhuayuan/hyperkube
@@ -80,18 +80,21 @@ function init_templates {
 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests \
                                /var/lib/docker \
                                /var/lib/kubelet \
-                               /run/kubelet
+                               /run/kubelet \
+                               /var/log/containers
 ExecStart=/usr/bin/rkt run \
   --volume etc-kubernetes,kind=host,source=/etc/kubernetes \
   --volume etc-ssl-certs,kind=host,source=/usr/share/ca-certificates \
   --volume var-lib-docker,kind=host,source=/var/lib/docker \
   --volume var-lib-kubelet,kind=host,source=/var/lib/kubelet \
   --volume run,kind=host,source=/run \
+  --volume var-log-containers,kind=host,source=/var/log/containers \
   --mount volume=etc-kubernetes,target=/etc/kubernetes \
   --mount volume=etc-ssl-certs,target=/etc/ssl/certs \
   --mount volume=var-lib-docker,target=/var/lib/docker \
   --mount volume=var-lib-kubelet,target=/var/lib/kubelet \
   --mount volume=run,target=/run \
+  --mount volume=var-log-containers,target=/var/log/containers \
   --trust-keys-from-https \
   --insecure-options=image \
   --stage1-path=/usr/share/rkt/stage1-fly.aci \
@@ -104,7 +107,7 @@ ExecStart=/usr/bin/rkt run \
     --config=/etc/kubernetes/manifests \
     --cluster_dns=${DNS_SERVICE_IP} \
     --cluster_domain=${CLUSTER_DOMAIN} \
-    --pod-infra-container-image=index.tenxcloud.com/tuhuayuan/pause:2.0
+    --pod-infra-container-image=index.tenxcloud.com/tuhuayuan/pause:3.0
 Restart=always
 RestartSec=10
 [Install]
@@ -411,6 +414,34 @@ spec:
 EOF
     }
 
+    local TEMPLATE=/srv/kubernetes/manifests/fluentd-es.yaml
+     [ -f $TEMPLATE ] || {
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "KubeDNS"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP:  ${DNS_SERVICE_IP}
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+EOF
+    }
+
     local TEMPLATE=/etc/systemd/system/etcd2.service.d/10-etcd2-config.conf
     [ -f $TEMPLATE ] || {
         echo "TEMPLATE: $TEMPLATE"
@@ -460,6 +491,24 @@ Requires=flanneld.service
 After=flanneld.service
 EOF
     }
+
+    local TEMPLATE=/etc/systemd/system/docker-tcp.socket
+    [ -f $TEMPLATE ] || {
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+[Unit]
+Description=Docker TCP Socket
+
+[Socket]
+ListenStream=2375
+Service=docker.service
+BindIPv6Only=both
+
+[Install]
+WantedBy=sockets.target
+EOF
+    }
 }
 
 function init_flannel {
@@ -497,16 +546,42 @@ function start_addons {
     echo "K8S: DNS addon"
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-rc.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/replicationcontrollers" > /dev/null
     curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kube-dns-svc.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/services" > /dev/null
+    echo "K8S: Fluentd for logging"
+  # curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/es-controller.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/replicationcontrollers" > /dev/null
+  # curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/es-service.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/services" > /dev/null
+  # curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kibana-controller.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/replicationcontrollers" > /dev/null
+  # curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/kibana-service.yaml)" "http://127.0.0.1:8080/api/v1/namespaces/kube-system/services" > /dev/null
+  # curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/fluentd-es.yaml)" "http://127.0.0.1:8080/apis/extensions/v1beta1/namespaces/kube-system/daemonsets" > /dev/null
+  #  echo "K8S: Router"
+  #  curl --silent -H "Content-Type: application/yaml" -XPOST -d"$(cat /srv/kubernetes/manifests/deis-router.yaml)" "http://127.0.0.1:8080/apis/extensions/v1beta1/namespaces/kube-system/daemonsets" > /dev/null
+}
+
+function start_nfs_server {
+    echo "Start nfs server."
+    mkdir -p /nfs/exports
+    local TEMPLATE=/etc/exports
+    [ -f $TEMPLATE ] || {
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+/nfs/exports *(rw,async,no_subtree_check,no_root_squash,fsid=0)
+EOF
+    }
+
+    systemctl start rpc-mountd; systemctl start nfsd
 }
 
 init_config
 init_templates
 
 systemctl daemon-reload
+systemctl restart nfs-utils
 systemctl enable etcd2; systemctl start etcd2
 init_flannel
+systemctl enable docker-tcp.socket; systemctl start docker-tcp.socket     
 systemctl enable flanneld; systemctl start flanneld
 systemctl enable kubelet; systemctl start kubelet
 start_addons
+start_nfs_server
 
 echo "DONE"

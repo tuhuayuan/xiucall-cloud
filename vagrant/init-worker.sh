@@ -9,7 +9,7 @@ export ETCD_NAME=
 export MASTER_ENDPOINT=
 
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
-export K8S_VER=v1.2.4_coreos.1
+export K8S_VER=v1.3.0_coreos.1
 
 # Hyperkube image repository to use.
 export HYPERKUBE_IMAGE_REPO=index.tenxcloud.com/tuhuayuan/hyperkube
@@ -93,7 +93,7 @@ ExecStart=/usr/bin/rkt run \
     --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
     --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
     --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-    --pod-infra-container-image=index.tenxcloud.com/tuhuayuan/pause:2.0
+    --pod-infra-container-image=index.tenxcloud.com/tuhuayuan/pause:3.0
     
 Restart=always
 RestartSec=10
@@ -218,6 +218,25 @@ Requires=flanneld.service
 After=flanneld.service
 EOF
     }
+
+    local TEMPLATE=/etc/systemd/system/docker-tcp.socket
+    [ -f $TEMPLATE ] || {
+        echo "TEMPLATE: $TEMPLATE"
+        mkdir -p $(dirname $TEMPLATE)
+        cat << EOF > $TEMPLATE
+[Unit]
+Description=Docker TCP Socket
+
+[Socket]
+ListenStream=2375
+Service=docker.service
+BindIPv6Only=both
+
+[Install]
+WantedBy=sockets.target
+EOF
+    }
+    
 }
 
 function wait_etcd2 {
@@ -244,8 +263,13 @@ init_config
 init_templates
 
 systemctl daemon-reload
+
+# allow kubelet mount nfs pv.
+systemctl start rpc-statd
+# start etcd2 -> docker-tcp -> flanneld -> kubelet
 systemctl enable etcd2; systemctl start etcd2
 wait_etcd2
+systemctl enable docker-tcp.socket; systemctl start docker-tcp.socket
 systemctl enable flanneld; systemctl start flanneld
 systemctl enable kubelet; systemctl start kubelet
 

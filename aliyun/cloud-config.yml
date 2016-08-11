@@ -1,0 +1,23 @@
+#cloud-config
+coreos:
+  units:
+    - name: coreos-cloudinit-mkdir.service
+      command: start
+      runtime: yes
+      content: |
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/mkdir -p /var/lib/coreos-install
+    - name: coreos-cloudinit-user-data.path
+      command: start
+      runtime: yes
+      content: |
+        [Path]
+        PathExists=/var/lib/coreos-install/user-data
+        Unit=user-cloudinit@var-lib-coreos\x2dinstall-user\x2ddata.service
+  oem:
+    id: aliyun
+    name: xiucall-aliyun
+    version-id: 1.0.0
+    home-url: http://www.xiucall.com/
+    bug-report-url: https://github.com/tuhuayuan/xiucall-cloud

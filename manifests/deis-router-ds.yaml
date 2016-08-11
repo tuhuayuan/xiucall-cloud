@@ -1,0 +1,52 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: deis-router
+  namespace: kube-system
+  labels:
+    k8s-app: deis-router
+    version: v1
+    kubernetes.io/cluster-service: "true"
+  annotations:
+    router.deis.io/nginx.bodySize: "1024m"
+spec:
+  selector:
+    matchLabels:
+      app: deis-router
+  template:
+    metadata:
+      labels:
+        app: deis-router
+    spec:
+      nodeSelector:
+        frontEnd: "true"
+      containers:
+      - name: deis-router
+        image: index.tenxcloud.com/tuhuayuan/router:git-8e2c256
+        imagePullPolicy: Always
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+          hostPort: 80
+        - containerPort: 6443
+          hostPort: 443
+        - containerPort: 2222
+          hostPort: 2222
+        - containerPort: 9090
+          hostPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9090
+          initialDelaySeconds: 1
+          timeoutSeconds: 1

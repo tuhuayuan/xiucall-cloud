@@ -25,7 +25,6 @@ MASTER_CLUSTER_IP="10.3.0.1"
 # cloud-init config script
 MASTER_CLOUD_CONFIG_PATH = File.expand_path("./vagrant/init-master.sh")
 WORKER_CLOUD_CONFIG_PATH = File.expand_path("./vagrant/init-worker.sh")
-puts MASTER_CLOUD_CONFIG_PATH
 
 # Generate private network ips
 def getMasterIp(num)
@@ -63,12 +62,20 @@ def provisionMachineSSL(machine,bsn,cn,ips)
   machine.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl && tar -C /etc/kubernetes/ssl -xf /tmp/ssl.tar", :privileged => true
 end
 
+# Provision manifests file
+def provisionManifests(machine)
+  tar_file = "./tmp/manifests.tar"
+  system("tar -cf #{tar_file} ./manifests")
+  machine.vm.provision :file, :source => tar_file, :destination => "/tmp/manifests.tar"
+  machine.vm.provision :shell, :inline => "mkdir -p /srv/kubernetes/manifests && tar -C /srv/kubernetes/  -xf /tmp/manifests.tar", :privileged => true
+end
+
 Vagrant.configure("2") do |config|
   # always use Vagrant's insecure key
   config.ssh.insert_key = false
 
   config.vm.box = "coreos-%s" % $update_channel
-  config.vm.box_version = ">= 899.17.0"
+  config.vm.box_version = ">= 1010.5.0"
   config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % $update_channel
 
   ["vmware_fusion", "vmware_workstation"].each do |vmware|
@@ -131,6 +138,9 @@ Vagrant.configure("2") do |config|
 
       # Each controller gets the same cert
       provisionMachineSSL(master,"apiserver","kube-master-#{master_ip}",master_ips+[MASTER_CLUSTER_IP])
+      
+      # Upload manifest files
+      provisionManifests(master)
 
       master.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
       master.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
@@ -166,7 +176,11 @@ Vagrant.configure("2") do |config|
       worker_ip = getWorkerIp(i)
       worker.vm.network :private_network, ip: worker_ip
 
+      # Each controller gets the same cert
       provisionMachineSSL(worker,"worker","kube-worker-#{worker_ip}",[worker_ip])
+
+      # Upload manifest files
+      provisionManifests(worker)
 
       worker.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
       worker.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true

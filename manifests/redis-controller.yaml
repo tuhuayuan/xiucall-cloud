@@ -1,0 +1,40 @@
+# This pod mounts the nfs volume claim into /usr/share/nginx/html and
+# serves a simple web page.
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nfs-redis
+spec:
+  replicas: 1
+  selector:
+    role: cache-backend
+  template:
+    metadata:
+      labels:
+        role: cache-backend
+    spec:
+      containers:
+      - name: redis
+        image: index.tenxcloud.com/docker_library/redis:3
+        ports:
+          - name: redis
+            containerPort: 6379
+        volumeMounts:
+            - name: redis-data
+              mountPath: "/data"
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-data
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: redis-data
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Mi
