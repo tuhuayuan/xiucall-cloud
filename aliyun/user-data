@@ -58,8 +58,13 @@ function init_config {
         export PRIVATE_IP=$(awk -F= '/COREOS_PRIVATE_IPV4/ {print $2}' /etc/environment)
     fi
     
-    export ETCD_ENDPOINTS=http://${PRIVATE_IP}:2379
-    export ETCD_INITIAL_CLUSTER="node1=http://${PRIVATE_IP}:2380"
+    if [ -z $ETCD_ENDPOINTS ]; then
+        export ETCD_ENDPOINTS=http://${PRIVATE_IP}:2379
+    fi
+
+    if [ -z $ETCD_INITIAL_CLUSTER ]; then
+        export ETCD_INITIAL_CLUSTER="node1=http://${PRIVATE_IP}:2380"
+    fi
 
     # Check all required varibles.
     for REQ in "${REQUIRED[@]}"; do
@@ -494,23 +499,16 @@ After=flanneld.service
 EOF
     }
 
-    local TEMPLATE=/etc/systemd/system/docker-tcp.socket
+    local TEMPLATE=/etc/systemd/system/locksmithd.service.d/10-set-etcd.conf
     [ -f $TEMPLATE ] || {
         echo "TEMPLATE: $TEMPLATE"
         mkdir -p $(dirname $TEMPLATE)
         cat << EOF > $TEMPLATE
-[Unit]
-Description=Docker TCP Socket
-
-[Socket]
-ListenStream=2375
-Service=docker.service
-BindIPv6Only=both
-
-[Install]
-WantedBy=sockets.target
+[Service]
+Environment="LOCKSMITHD_ENDPOINT=${ETCD_ENDPOINTS}"
 EOF
     }
+
 }
 
 function init_flannel {

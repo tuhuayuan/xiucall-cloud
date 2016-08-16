@@ -43,6 +43,7 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 subjectAltName = @alt_names
 
 [alt_names]
+
 "
 echo "Generating SSL artifacts in $OUTDIR"
 

@@ -5,7 +5,7 @@
 OPENSSL=/usr/bin/openssl
 
 function usage {
-    echo "USAGE: $0 <output-dir>"
+    echo "USAGE: $0 <output-dir> [CN]"
     echo "  example: $0 ./ssl/ca.pem"
 }
 
