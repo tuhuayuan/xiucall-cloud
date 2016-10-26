@@ -4,15 +4,15 @@
 apiVersion: v1
 kind: ReplicationController
 metadata:
-  name: nfs-redis
+  name: cache-master
 spec:
   replicas: 1
   selector:
-    role: cache-backend
+    role: cache-master
   template:
     metadata:
       labels:
-        role: cache-backend
+        role: cache-master
     spec:
       containers:
       - name: redis
@@ -21,20 +21,8 @@ spec:
           - name: redis
             containerPort: 6379
         volumeMounts:
-            - name: redis-data
-              mountPath: "/data"
+          - name: redis-data
+            mountPath: "/data"
       volumes:
       - name: redis-data
-        persistentVolumeClaim:
-          claimName: redis-data
----
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: redis-data
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 50Mi
+        emptyDir: {}

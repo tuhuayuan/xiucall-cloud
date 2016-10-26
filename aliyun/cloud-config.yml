@@ -1,5 +1,7 @@
 #cloud-config
 coreos:
+  update:
+    reboot-strategy: "best-effort"
   units:
     - name: coreos-cloudinit-mkdir.service
       command: start
@@ -15,6 +17,15 @@ coreos:
         [Path]
         PathExists=/var/lib/coreos-install/user-data
         Unit=user-cloudinit@var-lib-coreos\x2dinstall-user\x2ddata.service
+    - name: change-motd.service
+      commande: start
+      runtime: yes
+      content: |
+        [Service]
+        Type=oneshot
+        EnvironmentFile=/etc/os-release
+        ExecStartPre=/bin/sh -c '/usr/bin/sed -i -e \'/^CoreOS/d\' /etc/motd'
+        ExecStart=/bin/sh -c '/usr/bin/sed -i -e \'$a CoreOS ${VERSION}\' /etc/motd'
   oem:
     id: aliyun
     name: xiucall-aliyun
