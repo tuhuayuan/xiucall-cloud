@@ -1,5 +1,7 @@
 *.gem
 *.rbc
+/.vagrant
+/volumes
 /ssl
 /.config
 /coverage/

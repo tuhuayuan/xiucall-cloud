@@ -41,7 +41,7 @@ export CLUSTER_DOMAIN=
 export PRIVATE_IP=
 
 # The above settings can optionally be overridden using an environment file:
-ENV_FILE=/run/coreos-kubernetes/options.env
+ENV_FILE=/etc/coreos-kubernetes/options.env
 
 function init_config {
     local REQUIRED=('PRIVATE_IP' 'CLUSTER_DOMAIN' 'ETCD_NAME' 'ETCD_ENDPOINTS' 'ETCD_INITIAL_CLUSTER' 'POD_NETWORK' 'SERVICE_IP_RANGE' 'K8S_SERVICE_IP' 'DNS_SERVICE_IP' 'K8S_VER' 'HYPERKUBE_IMAGE_REPO')
@@ -575,6 +575,7 @@ init_config
 init_templates
 
 systemctl daemon-reload
+systemctl stop update-engine; systemctl mask update-engine
 systemctl restart nfs-utils
 systemctl enable etcd2; systemctl start etcd2
 init_flannel

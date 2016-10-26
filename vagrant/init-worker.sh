@@ -25,7 +25,7 @@ export CLUSTER_DOMAIN=
 export PRIVATE_IP=
 
 # The above settings can optionally be overridden using an environment file:
-ENV_FILE=/run/coreos-kubernetes/options.env
+ENV_FILE=/etc/coreos-kubernetes/options.env
 
 # -------------
 
@@ -266,6 +266,7 @@ systemctl daemon-reload
 
 # allow kubelet mount nfs pv.
 systemctl start rpc-statd
+systemctl stop update-engine; systemctl mask update-engine
 # start etcd2 -> docker-tcp -> flanneld -> kubelet
 systemctl enable etcd2; systemctl start etcd2
 wait_etcd2

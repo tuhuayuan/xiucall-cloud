@@ -143,7 +143,7 @@ Vagrant.configure("2") do |config|
       provisionManifests(master)
 
       master.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
-      master.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
+      master.vm.provision :shell, :inline => "mkdir -p /etc/coreos-kubernetes && mv /tmp/coreos-kube-options.env /etc/coreos-kubernetes/options.env", :privileged => true
 
       master.vm.provision :file, :source => MASTER_CLOUD_CONFIG_PATH, :destination => "/tmp/vagrantfile-user-data"
       master.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
@@ -183,7 +183,7 @@ Vagrant.configure("2") do |config|
       provisionManifests(worker)
 
       worker.vm.provision :file, :source => env_file, :destination => "/tmp/coreos-kube-options.env"
-      worker.vm.provision :shell, :inline => "mkdir -p /run/coreos-kubernetes && mv /tmp/coreos-kube-options.env /run/coreos-kubernetes/options.env", :privileged => true
+      worker.vm.provision :shell, :inline => "mkdir -p /etc/coreos-kubernetes && mv /tmp/coreos-kube-options.env /etc/coreos-kubernetes/options.env", :privileged => true
 
       worker.vm.provision :file, :source => WORKER_CLOUD_CONFIG_PATH, :destination => "/tmp/vagrantfile-user-data"
       worker.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
