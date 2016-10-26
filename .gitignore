@@ -3,6 +3,7 @@
 /.vagrant
 /volumes
 /ssl
+/aliyun/ssl
 /.config
 /coverage/
 /InstalledFiles
